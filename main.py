@@ -358,7 +358,7 @@ def drawNumbersOnImage(img,numbers):
         for j in range(0,9):
             if(numbers[i][j]!=0):
                 num,num2, x, y = numbers[i][j]
-                cv2.putText(img,str(num)+','+str(num2),(x, y),cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,255,0))
+                cv2.putText(img,str(num)+','+str(num2),(x, y),cv2.FONT_HERSHEY_SIMPLEX,0.8,(0,0,255),2)#kolor w skali BGR
                 showStepsImgs(img)
     return img
 
