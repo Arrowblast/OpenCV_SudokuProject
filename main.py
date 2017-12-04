@@ -401,23 +401,10 @@ def preprocessImage(img):
     gray_threshed2 = cv2.erode(gray_threshed2, kernel, iterations=1)
     return gray_threshed2
 
-def showAndWait(img, param='_'):
+def showAndWait(img, param='_',wait=False):
     cv2.imshow(param, img)
-
-    # cv2.destroyAllWindows()
-
-#
-# def showStepsImg(img):
-#     if showSteps == True:
-#         showAndWait(img)
-
-
-# def showAndWait2(imgs):
-#     cv2.destroyAllWindows()
-#     for i in range(len(imgs)):
-#         cv2.imshow(str(i),imgs[i])
-#     cv2.waitKey()
-#     cv2.destroyAllWindows()
+    if wait==True:
+        cv2.waitKey()
 
 
 def showStepsImgs(img,img2=None):
@@ -425,11 +412,9 @@ def showStepsImgs(img,img2=None):
     if showSteps == True:
         if img2 is not None:
             showAndWait(img2,'1')
-            showAndWait(img)
-            cv2.waitKey()
+            showAndWait(img,wait=True)
         else:
-            showAndWait(img)
-        cv2.waitKey()
+            showAndWait(img,wait=True)
         cv2.destroyWindow('1')
 
 
@@ -480,7 +465,8 @@ def processImages(images):
         showStepsImgs(imgCorColor,imgBW)
         imgCorColor = drawNumbersOnImage(imgCorColor, numbers)
         showStepsImgs(imgCorColor)
-
+        if showSteps == False:
+            showAndWait(imgCorColor,wait=True)
 
     # stack_1 = np.vstack((processed))
 
@@ -503,7 +489,7 @@ def setUpTestImgs():
     return images
 
 if __name__ == '__main__':
-    showSteps = True
+    showSteps = False
 
     images = setUpTestImgs()
     processImages(images)
