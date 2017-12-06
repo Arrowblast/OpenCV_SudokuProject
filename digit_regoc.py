@@ -53,7 +53,7 @@ class KNN_MODEL():  # can also define a custom model in a similar class wrapper 
 
 
     def train(self, samples, responses):
-        # self.model = cv2.KNearest()
+
         self.model = cv2.ml.KNearest_create()
         # knn = cv2.ml.KNearest_create()
         # knn.train(samples,cv2.ml.ROW_SAMPLE, responses)
@@ -124,7 +124,7 @@ def predictNumber(im_digit, model):
     # im_digit = cv2.dilate(im_digit,np.ones((3, 3), np.uint8),iterations=1)
     # im_digit = cv2.erode(im_digit,np.ones((3, 3), np.uint8),iterations=1)
     # cv2.imshow('b',im_digit)
-    im_digit = imresize(im_digit, (20, 20))
+    im_digit = imresize(im_digit, (28, 28))
     # cv2.imshow('c',im_digit)
 
     hog_img_data = pixels_to_hog_20([im_digit])
@@ -143,13 +143,14 @@ def proc_user_img(fn, model):
 
     imgray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
 
-    kernel = np.ones((5, 5), np.uint8)
+    kernel = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+    kernel = np.array(kernel)
 
-    ret, thresh = cv2.threshold(imgray, 127, 255, 0)
+    ret, thresh = cv2.adaptiveThreshold(imgray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 5, 2)
 
-    thresh = cv2.erode(thresh, kernel, iterations=1)
+    #thresh = cv2.erode(thresh, kernel, iterations=1)
     thresh = cv2.dilate(thresh, kernel, iterations=1)
-    thresh = cv2.erode(thresh, kernel, iterations=1)
+    #thresh = cv2.erode(thresh, kernel, iterations=1)
 
     # for opencv 3.0.x
     _,contours,hierarchy = cv2.findContours(thresh,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
@@ -211,7 +212,7 @@ def setUp():
     train_digits_labels = labels
 
     print('training KNearest...')  # gets 80% in most user images
-    model = KNN_MODEL(k=101)
+    model = KNN_MODEL(k=5)
     model.train(train_digits_data, train_digits_labels)
     return model
     # proc_user_img(USER_IMG, model)
@@ -240,7 +241,7 @@ if __name__ == '__main__':
     train_digits_labels = labels
 
     print('training KNearest...')  # gets 80% in most user images
-    model = KNN_MODEL(k=4)
+    model = KNN_MODEL(k=5)
     model.train(train_digits_data, train_digits_labels)
 
     proc_user_img(USER_IMG, model)

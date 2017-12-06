@@ -244,7 +244,7 @@ def calculateEdges(lines):
     return topEdge, botEdge, lefEdge, rigEdge
 
 def calculateBoardCorners(bwImg):
-    _, contours, _ = cv2.findContours(bwImg.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    _, contours, _ = cv2.findContours(bwImg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     h, w = bwImg.shape
     # print(contours[0])
     srcPoints = [
@@ -324,9 +324,15 @@ def predictDigits(imgBW, imgColor):
                 # obrobka malej liczby
                 numberImgBW = tempImg
                 numberImgBW = imgColor[y-1:y + h+1, x-1:x + w+1]
+
                 numberImgBW = cv2.cvtColor(numberImgBW, cv2.COLOR_BGR2GRAY)
+                #numberImgBW = cv2.GaussianBlur(numberImgBW, (11, 11), 0)
                 numberImgBW = cv2.cv2.adaptiveThreshold(numberImgBW, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                                        cv2.THRESH_BINARY_INV, 101, 1)
+                                                        cv2.THRESH_BINARY_INV, 5, 2)
+                kernel = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+                kernel = np.array(kernel)
+
+                #numberImgBW = cv2.dilate(numberImgBW, np.ones((3, 3), np.uint8), iterations=1)
                 numberImgBW = cv2.resize(numberImgBW, (28, 28), interpolation=cv2.INTER_AREA)
                 for i in range(0,28):
                     numberImgBW[i, 0] = 0
@@ -364,8 +370,8 @@ def drawNumbersOnImage(img,numbers):
 
 def preprocessImage(img):
 
-    gray = cv2.cvtColor(cv2.addWeighted(img, 2, np.zeros(img.shape, img.dtype), 0, 10), cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, (11, 11), 0)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
     gray_threshed2 = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 5, 2)
     kernel = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
     kernel = np.array(kernel)
@@ -442,7 +448,7 @@ def processImages(images):
         imgBW = cv2.cvtColor(imgCorColor, cv2.COLOR_BGR2GRAY)
 
         imgBW = cv2.adaptiveThreshold(imgBW, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                       cv2.THRESH_BINARY_INV, 101, 1)
+                                       cv2.THRESH_BINARY_INV, 101, 2)
 
 
         imgCorColor, czyObrocic, numbers = predictDigits(imgBW, imgCorColor)
@@ -479,12 +485,22 @@ def processImages(images):
 def setUpTestImgs():
     images = ['images/IMG01.jpg',
               'images/IMG02.jpg',
-              'images/IMG03.jpg',
+             'images/IMG03.jpg',
               'images/IMG04.jpg',
               'images/IMG05.jpg',
               'images/IMG06.jpg',
-              'images/sudoku-original.jpg']
+              'images/sudoku-original.jpg',
+              'images/sudoku.jpg',
+             'images/dataset-card.jpg',
+             'images/DiabolicalPuzzle.jpg',
+             'images/sud.jpg',
+              'images/sudoku1.jpg',
+              'images/sudoku2.jpg',
+            #'images/sudoku-mind-game.jpg',
+             #  'images/sudoku-game.jpg',
+             'images/sudoku4.jpg']
     images = [cv2.imread(im) for im in images]
+
     images = [imutils.resize(img, width=600) for img in images]
     return images
 
