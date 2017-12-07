@@ -46,7 +46,7 @@ def load_digits(fn):
 
 
 class KNN_MODEL():  # can also define a custom model in a similar class wrapper with train and predict methods
-    def __init__(self, k=101):
+    def __init__(self, k=5):
         self.k = k
         # self.model = cv2.KNearest()
         self.model = cv2.ml.KNearest_create()

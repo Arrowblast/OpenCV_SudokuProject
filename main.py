@@ -488,17 +488,22 @@ def setUpTestImgs():
              'images/IMG03.jpg',
               'images/IMG04.jpg',
               'images/IMG05.jpg',
-              'images/IMG06.jpg',
+              'images/article.jpg',
               'images/sudoku-original.jpg',
               'images/sudoku.jpg',
              'images/dataset-card.jpg',
              'images/DiabolicalPuzzle.jpg',
              'images/sud.jpg',
               'images/sudoku1.jpg',
-              'images/sudoku2.jpg',
-            #'images/sudoku-mind-game.jpg',
-             #  'images/sudoku-game.jpg',
-             'images/sudoku4.jpg']
+              'images/Sudoku-900x900.jpg',
+             'images/sudoku4.jpg',
+             'images/easy sudoku to print.jpg',
+             'images/sudoku_SP56c.jpg',
+              'images/Sudoku3324.jpg',
+              'images/sudoku-ok.jpg',
+              'images/sudoku-gratuit.jpg',
+                'images/sudoku5.jpg'
+              ]
     images = [cv2.imread(im) for im in images]
 
     images = [imutils.resize(img, width=600) for img in images]
