@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from numpy import tan, cos, sin, pi, fabs, sqrt
+from numpy import tan, cos, sin, pi, fabs, sqrt, math
 import imutils
 from sklearn.externals import joblib
 from skimage.feature import hog
@@ -12,6 +12,90 @@ showSteps = False
 clf = joblib.load("digits_cls.pkl")
 
 model = recognizer.setUp()
+
+
+
+# tablica z intami
+
+
+def isValidLine(line):
+    # czy z zakresu 0-9
+    for i in range(len(line)):
+        if line[i] < 0 or line[i] > 9:
+            return False
+
+    # czy sa duplikaty od 1-9
+    tempVal = []
+    for i in range(0, 9):
+        tempVal.append(0)
+    for i in line:
+        if i == 0:
+            continue
+        tempVal[i - 1] = tempVal[i - 1] + 1
+        if tempVal[i - 1] > 1:
+            return False
+    return True
+
+
+def areValidBoxes(board):
+    box = []
+    for i in range(0, 3):
+        for j in range(0, 3):
+            box.clear()
+            for k in range(0, 9):
+                box.append(board[int(i * 3 + k / 3)][int(j * 3 + k % 3)])
+            if not (isValidLine(box)): return False
+    return True
+
+
+def isBoardValid(board):
+    row = []
+    col = []
+    for i in range(0, 9):
+        row.clear()
+        col.clear()
+        for j in range(0, 9):
+            row.append(board[i][j])
+            col.append(board[j][i])
+        if not (isValidLine(row)) or not (isValidLine(col)): return False
+    return areValidBoxes(board)
+
+
+def solve(x, y, board):
+    if (board[x][y] != 0):
+        if isBoardValid(board):
+            if x == 8 and y == 8:
+                return True, board
+            nextX = x + 1
+            nextY = y
+            if nextX >= 9:
+                nextX = 0
+                nextY = nextY + 1
+            wynik, board = solve(nextX, nextY, board)
+            return wynik, board
+        else:
+            return False, board
+    for val in range(1, 10):
+        board[x][y] = val
+        if isBoardValid(board):
+            if x == 8 and y == 8:
+                return True, board
+            nextX = x + 1
+            nextY = y
+            if nextX >= 9:
+                nextX = 0
+                nextY = nextY + 1
+            wynik, board = solve(nextX, nextY, board)
+            if wynik:
+                return True, board
+    board[x][y] = 0
+    return False, board
+
+
+def solveBoard(board):
+    wynik, board = solve(0, 0, board)
+    return wynik, board
+
 
 def mergeRelatedLines(lines, img):
     # print(img.size)
@@ -60,6 +144,7 @@ def mergeRelatedLines(lines, img):
 
     return lines
 
+
 def drawLine(line, img, rgb=(0, 0, 255)):
     if (line[1] != 0):
 
@@ -68,6 +153,7 @@ def drawLine(line, img, rgb=(0, 0, 255)):
         cv2.line(img, (0, int(c)), (int(img.shape[0]), int(m * img.shape[0] + c)), rgb)
     else:
         cv2.line(img, (line[0], 0), (line[0], img.shape[1]), rgb)
+
 
 def calculateIntersections(outerBox, originalImage, src):
     ptTopLeft = src[0]
@@ -205,6 +291,7 @@ def calculateIntersections(outerBox, originalImage, src):
     #     101, 1)
     return img, src
 
+
 def calculateEdges(lines):
     topEdge = (1000, 1000);
     topYIntercept = 100000;
@@ -243,6 +330,7 @@ def calculateEdges(lines):
                 lefXIntercept = xIntercept
     return topEdge, botEdge, lefEdge, rigEdge
 
+
 def calculateBoardCorners(bwImg):
     _, contours, _ = cv2.findContours(bwImg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     h, w = bwImg.shape
@@ -258,10 +346,53 @@ def calculateBoardCorners(bwImg):
 
     return dstPoints, srcPoints
 
+
+
+def drawNumbersOnImage(img, numbers):
+    w, h, _ = img.shape
+    w = w / 9
+    h = h / 9
+    finalNumbers = []
+    for i in range(9):
+        finalNumbers.append([])
+        for j in range(9):
+            finalNumbers[i].append(0)
+
+    for i in range(9):
+        for j in range(9):
+            if numbers[i][j] != 0:
+                # finalNumbers[i][j] = numbers[i][j][1]  # biore kNN
+                finalNumbers[i][j]  = numbers[i][j][0]  # biore SVM
+
+    wynik, board = solveBoard(finalNumbers)
+    if wynik:
+        print('Znaleziono rozwiazanie !')
+    else:
+        print('Nie znaleziono rozwiazanie !')
+    # SVM, kNN, x, y+h
+    for i in range(0, 9):
+        for j in range(0, 9):
+            # BGR
+            color = (0, 0, 255)
+            grubosc = 2
+            skala = 0.8
+            x = int(i * w + (w / 2))
+            y = int(j * h + (h / 2))
+            if wynik:
+                cv2.putText(img, str(board[i][j]), (x,y), cv2.FONT_HERSHEY_SIMPLEX, skala, color,
+                            grubosc)
+                showStepsImgs(img)
+            elif finalNumbers[i][j] != 0:
+                x = int(i*w + (w/2))
+                y = int (j*h + (h/2))
+                cv2.putText(img, str(finalNumbers[i][j]) + '', (x, y), cv2.FONT_HERSHEY_SIMPLEX, skala, color, grubosc)  # kolor w skali BGR
+
+    return img
 def predictNumber(numberImg):
     roi_hog_fd = hog(numberImg, orientations=9, pixels_per_cell=(14, 14), cells_per_block=(1, 1), visualise=False)
     nbr = clf.predict(np.array([roi_hog_fd], 'float64'))
     return int(nbr[0])
+
 
 def closest_node(node, nodes):
     tempNodes = []
@@ -270,13 +401,14 @@ def closest_node(node, nodes):
     x = nodes[cdist([node], tempNodes).argmin()]
     return [x[0][0], x[0][1]]
 
+
 def rotateImgs(imgBW, img, angleRotation=0):
     if angleRotation != 0:
-        w,h = imgBW.shape
+        w, h = imgBW.shape
 
-        M = cv2.getRotationMatrix2D((w/2, h/2), angleRotation, 1)
-        imgCorColor = cv2.warpAffine(img,M,(600,600))
-        return imgBW, imgCorColor,0
+        M = cv2.getRotationMatrix2D((w / 2, h / 2), angleRotation, 1)
+        imgCorColor = cv2.warpAffine(img, M, (600, 600))
+        return imgBW, imgCorColor, 0
     else:
         _, contours, hierarchy = cv2.findContours(imgBW, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -284,7 +416,7 @@ def rotateImgs(imgBW, img, angleRotation=0):
         center = rect[0]
         angle = int(rect[2])
         angleCpy = angle
-        print('Kat nachylenia ', angle)
+        # print('Kat nachylenia ', angle)
         if abs(angleCpy) > 45:
             angleCpy = 90 - abs(angleCpy)
 
@@ -294,11 +426,12 @@ def rotateImgs(imgBW, img, angleRotation=0):
         imgCorColor = cv2.warpAffine(img, M, (600, 600))
         return imgBW, imgCorColor, angle
 
+
 def predictDigits(imgBW, imgColor):
     numbers = []
-    for i in range(0,9):
+    for i in range(0, 9):
         numbers.append([])
-        for j in range(0,9):
+        for j in range(0, 9):
             numbers[i].append(0)
 
     imgBW, numberContours, hierarchy = cv2.findContours(imgBW, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -306,16 +439,17 @@ def predictDigits(imgBW, imgColor):
     imgH, imgW = imgBW.shape
     imgH = int(imgH / 9)
     imgW = int(imgW / 9)
-    boxAreaMax = imgH * imgW * 0.6
-    boxAreaMin = imgH * imgW * 0.05
+    boxAreaMax = imgH * imgW * 0.7
+    boxAreaMin = imgH * imgW * 0.04
     tempImg = 0
     lezace = stojace = 0
-
+    # cv2.imshow('img',imgColor)
     for cnt in numberContours:
         if cv2.contourArea(cnt) > boxAreaMin and cv2.contourArea(cnt) < boxAreaMax:
             [x, y, w, h] = cv2.boundingRect(cnt)
 
-            if not (h * 3 < w) and not (w * 3 < h):
+            # if not (h * 3 < w) and not (w * 3 < h):
+            if not (h * 4 < w):
                 if h < w:
                     lezace = lezace + 1
                 else:
@@ -323,23 +457,24 @@ def predictDigits(imgBW, imgColor):
 
                 # obrobka malej liczby
                 numberImgBW = tempImg
-                numberImgBW = imgColor[y-1:y + h+1, x-1:x + w+1]
+                numberImgBW = imgColor[y - 1:y + h + 1, x - 1:x + w + 1]
 
                 numberImgBW = cv2.cvtColor(numberImgBW, cv2.COLOR_BGR2GRAY)
-                #numberImgBW = cv2.GaussianBlur(numberImgBW, (11, 11), 0)
-                numberImgBW = cv2.cv2.adaptiveThreshold(numberImgBW, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                # numberImgBW = cv2.GaussianBlur(numberImgBW, (11, 11), 0)
+                numberImgBW = cv2.adaptiveThreshold(numberImgBW, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                                         cv2.THRESH_BINARY_INV, 5, 2)
                 kernel = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
                 kernel = np.array(kernel)
 
-                #numberImgBW = cv2.dilate(numberImgBW, np.ones((3, 3), np.uint8), iterations=1)
+                # numberImgBW = cv2.dilate(numberImgBW, np.ones((3, 3), np.uint8), iterations=1)
+                numberImgBW = cv2.erode(numberImgBW, kernel, iterations=1)
+                numberImgBW = cv2.dilate(numberImgBW, kernel, iterations=1)
                 numberImgBW = cv2.resize(numberImgBW, (28, 28), interpolation=cv2.INTER_AREA)
-                for i in range(0,28):
+                for i in range(0, 28):
                     numberImgBW[i, 0] = 0
                     numberImgBW[i, 1] = 0
                     numberImgBW[0, i] = 0
                     numberImgBW[1, i] = 0
-                numberImgBW = cv2.erode(numberImgBW, np.ones((3, 3), np.uint8), iterations=1)
 
                 # do wykrycia w ktorej komorce leze dana liczba
                 M = cv2.moments(cnt)
@@ -350,26 +485,20 @@ def predictDigits(imgBW, imgColor):
                 yBox = int(cY / imgW)
 
                 # kNN
+
                 number1 = recognizer.predictNumber(numberImgBW, model)
                 # SVM
                 number2 = predictNumber(numberImgBW)
 
-                numbers[xBox][yBox] = [number2,number1,x,y+h]
-                print('kNN:',number1, ',SVM:',number2)
+                numbers[xBox][yBox] = [number2, number1, x, y + h]
+                # print('kNN:', number1, ',SVM:', number2)
+                # showAndWait(numberImgBW,param='num', wait=True)
 
     return imgColor, (stojace - lezace), numbers
 
-def drawNumbersOnImage(img,numbers):
-    for i in range(0,9):
-        for j in range(0,9):
-            if(numbers[i][j]!=0):
-                num,num2, x, y = numbers[i][j]
-                cv2.putText(img,str(num)+','+str(num2),(x, y),cv2.FONT_HERSHEY_SIMPLEX,0.8,(0,0,255),2)#kolor w skali BGR
-                showStepsImgs(img)
-    return img
+
 
 def preprocessImage(img):
-
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
     gray_threshed2 = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 5, 2)
@@ -378,7 +507,7 @@ def preprocessImage(img):
 
     gray_threshed2 = cv2.dilate(gray_threshed2, kernel, iterations=1)
     _, contours, _ = cv2.findContours(gray_threshed2, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    print('.')
+    # print('.')
     count = 0
     max_blob = -1
     max_blob_size = -1
@@ -407,111 +536,126 @@ def preprocessImage(img):
     gray_threshed2 = cv2.erode(gray_threshed2, kernel, iterations=1)
     return gray_threshed2
 
-def showAndWait(img, param='_',wait=False):
+
+def showAndWait(img, param='_', wait=False):
     cv2.imshow(param, img)
-    if wait==True:
+    if wait == True:
         cv2.waitKey()
 
 
-def showStepsImgs(img,img2=None):
-
+def showStepsImgs(img, img2=None):
     if showSteps == True:
         if img2 is not None:
-            showAndWait(img2,'1')
-            showAndWait(img,wait=True)
+            showAndWait(img2, '1')
+            showAndWait(img, wait=True)
         else:
-            showAndWait(img,wait=True)
+            showAndWait(img, wait=True)
         cv2.destroyWindow('1')
 
 
-
-def processImages(images):
-    for img in images:
+def processImages(images,imagesNames):
+    for imgNumer,img in enumerate(images):
 
         showStepsImgs(img)
         imgBW = preprocessImage(img.copy())
         showStepsImgs(imgBW)
 
-
         # Zalozenie: nie moze byc do gory nogami zdjecie ! maxymalny kat obrocenia planszy 90 stopni
         # jeśli kontury wyjda lezace a nie stojace powtorzyc wszystko pod tym i zmienic kat na +-90
         imgBW, imgCorColor, angle = rotateImgs(imgBW, img)
-        showStepsImgs(imgCorColor,imgBW)
-
+        showStepsImgs(imgCorColor, imgBW)
 
         src, dst = calculateBoardCorners(imgBW)
 
+        # print('asd')
         imgCorColor, corners = calculateIntersections(imgBW, imgCorColor, src)
-        showStepsImgs(imgCorColor,imgBW)
-
+        showStepsImgs(imgCorColor, imgBW)
 
         imgBW = cv2.cvtColor(imgCorColor, cv2.COLOR_BGR2GRAY)
 
         imgBW = cv2.adaptiveThreshold(imgBW, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                       cv2.THRESH_BINARY_INV, 101, 2)
-
+                                      cv2.THRESH_BINARY_INV, 101, 2)
 
         imgCorColor, czyObrocic, numbers = predictDigits(imgBW, imgCorColor)
 
         if czyObrocic < 0:
             w, h, _ = imgCorColor.shape
-            pts1 = np.float32([[0,0],[0,w],[h,w],[h,0]])
+            pts1 = np.float32([[0, 0], [0, w], [h, w], [h, 0]])
             if angle < 0:
-                pts2 = np.float32([[0,w],[h,w],[h,0],[0,0]])
+                pts2 = np.float32([[0, w], [h, w], [h, 0], [0, 0]])
+                print('Trzeba obrocic w lewo (90 stopni)')
             else:
                 pts2 = np.float32([[h, 0], [0, 0], [0, w], [h, w]])
-                print('TRZEBA OBROCIC W PRAWO (-90 stopni)')
+                print('Trzeba obrocic w prawo (-90 stopni)')
 
-            imgCorColor = cv2.warpPerspective(imgCorColor,cv2.getPerspectiveTransform(pts1,pts2),(w,h))
-            imgBW = cv2.warpPerspective(imgBW,cv2.getPerspectiveTransform(pts1,pts2),(w,h))
+            imgCorColor = cv2.warpPerspective(imgCorColor, cv2.getPerspectiveTransform(pts1, pts2), (w, h))
+            imgBW = cv2.warpPerspective(imgBW, cv2.getPerspectiveTransform(pts1, pts2), (w, h))
 
             # numbers = 0
             imgCorColor, czyObrocic, numbers = predictDigits(imgBW, imgCorColor)
 
-        showStepsImgs(imgCorColor,imgBW)
+        showStepsImgs(imgCorColor, imgBW)
         imgCorColor = drawNumbersOnImage(imgCorColor, numbers)
         showStepsImgs(imgCorColor)
+
+        # solve sudoku with numbers - trzeba  przerobic 'numbers'
+
+        #
+
         if showSteps == False:
-            showAndWait(imgCorColor,wait=True)
+            print('Zdjecie: ',imageNames[imgNumer])
+            # cv2.destroyAllWindows()
+            showAndWait(imgCorColor,param='Edited', wait=False)
+            showAndWait(img,param='Orginal' ,wait=True)
 
     # stack_1 = np.vstack((processed))
 
     # cv2.imshow('Objects Detected_1', processed[0])
 
     # cv2.waitKey()
-
     cv2.destroyAllWindows()
 
+
+
 def setUpTestImgs():
-    images = ['images/IMG01.jpg',
+    imageNames = ['images/sudoku_to_solve.jpg',
+              'images/IMG01.jpg',
               'images/IMG02.jpg',
-             'images/IMG03.jpg',
+              'images/IMG03.jpg',
               'images/IMG04.jpg',
               'images/IMG05.jpg',
               'images/article.jpg',
               'images/sudoku-original.jpg',
               'images/sudoku.jpg',
-             'images/dataset-card.jpg',
-             'images/DiabolicalPuzzle.jpg',
-             'images/sud.jpg',
+              'images/dataset-card.jpg',
+              'images/DiabolicalPuzzle.jpg',
+              'images/sud.jpg',
               'images/sudoku1.jpg',
               'images/Sudoku-900x900.jpg',
-             'images/sudoku4.jpg',
-             'images/easy sudoku to print.jpg',
-             'images/sudoku_SP56c.jpg',
+              'images/sudoku4.jpg',
+              'images/easy sudoku to print.jpg',
+              'images/sudoku_SP56c.jpg',
               'images/Sudoku3324.jpg',
               'images/sudoku-ok.jpg',
               'images/sudoku-gratuit.jpg',
-                'images/sudoku5.jpg'
+              'images/sudoku5.jpg',
+              'images/6_1.jpg',
+              'images/6_2.jpg',
+              'images/6_3.jpg',
+              'images/6_4.jpg',
+              'images/6_5.jpg',
+              'images/6_6.jpg'
               ]
-    images = [cv2.imread(im) for im in images]
+    images = [cv2.imread(im) for im in imageNames]
 
     images = [imutils.resize(img, width=600) for img in images]
-    return images
+    return images, imageNames
+
 
 if __name__ == '__main__':
     showSteps = False
+    # showSteps = True
 
-    images = setUpTestImgs()
-    processImages(images)
+    images, imageNames = setUpTestImgs()
+    processImages(images, imageNames)
     # processImages(images)
